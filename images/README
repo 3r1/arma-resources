@@ -5,7 +5,7 @@ cycle-to-wall.png
 Other:
 cycle-alignment.png
     Using circle wheel models, visually shows center of each model. The center of each wheel is the center of each model (0,0,0).
-    The three models are offset in souce from the base of the tail head as follows:
+    The three models are offset in source from the base of the tail head as follows:
         cycle_body.mod:     no offset       (none)
         cycle_back.mod:     (0,0,0.73)      (up 0.73)
         cycle_front.mod:    (1.84,0,0.43)   (forward 1.84, up 0.43)
