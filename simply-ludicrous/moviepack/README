@@ -1,0 +1,25 @@
+All original artwork, models and files by Lyrienne#0001(Ludicrous), excepting cycle_rear.mod and title.jpg. Any and all uses allowed, excepting cycle_rear.mod and title.jpg.
+
+Textures and images fully made in GIMP.
+
+Cycle body model made in text editor alongside gimp sketches for vertice and face references.
+
+The concept is a flat edge front that only barely passes through walls when touching to give you more precision. .mod files used in order to utilize the default model's spinning wheels.
+
+Front wheel mod file is empty, whereas cycle_rear.mod model is an edit of Pike's "donut" cycle model, used to learn how to write .mod files by hand and as the final rear wheel.
+
+cycle_body.mod is a quadrilateral prism with one oblique edge given a slight curve with a larger center ring.
+Feel free to take a glance at the file, it only has 12 vertices and then 16 faces(tris) organized in sets of two for each face.
+Vertices 1-4 and 9-12 make up the two outer quadrilaterals.
+Vertices 5-8 make up the center ring to add more dimension to the otherwise very flat quadrilateral prism.
+The coordinates are (width, thickness, height) where thickness is left and right from the cycle wall.
+Width and height extend positvely away from the cycle wall edge where the cycle begind.
+
+
+LEGAL:
+
+cycle_rear.mod model is an edit of Pike's "donut" cycle model, no license specified, but attribution required in derivative works of this moviepack where this asset is used.
+Tron images in title.jpg taken from Tr2n movie and are copyright © Walt Disney Productions.
+
+All other assets are free to use, assuming Disney copyright compliance where applicable.
+
