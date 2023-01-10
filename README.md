@@ -1,6 +1,6 @@
 # arma-resources
 
-Over time this will contain everything I have made for Armagetron Advanced (Retroycycles on Steam).
+Over time this will contain everything I have made for Armagetron Advanced (Retrocycles on Steam).
 
 |folder|info|
 |-|-|
