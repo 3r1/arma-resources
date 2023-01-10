@@ -2,7 +2,7 @@
 
 Over time this will contain everything I have made for Armagetron Advanced (Retroycycles on Steam).
 
-|||
+|folder|info|
 |-|-|
 |cockpits|my cockpits (that will not work properly if added to arma resources)
 |images|images regarding material related to this repository
