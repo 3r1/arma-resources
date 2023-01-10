@@ -1,0 +1,769 @@
+<?xml version="1.0" encoding="ISO-8859-1" standalone="no"?>
+<!DOCTYPE Resource SYSTEM "AATeam/cockpit-0.3.1-c.dtd">
+
+<!--
+    desires:
+        current color in hex
+        current color useable for coloring a texture (such as team color on map border)
+        some variable usable in hud on event player death to display "YOU DIED" without comparing rubber to greater than 4.99 which must be done on servers because you never hit cycle_rubber
+        global variable for player currently focused on by camera (you or who you're spectating)
+            for example: camera_player & colored_camera_player (no thought put into names)
+        align and anchor
+        remove curspeed to stop map size from contantly changing and make mode cycle for minimap useable
+            zoom = (w>h)?h/(yscale*m_zoom*pl_CurSpeed):w/(xscale*m_zoom*pl_CurSpeed);
+        camview fix
+        widget alpha without overlaying black boxes
+        team names
+        math on strings
+        splitting strings separating hexcode and string into two variables or something idk
+        a rewrite xd
+
+    last edit: dec 27, 2022
+    version 2: rewrite of templates and gauges to use "ludicrous"
+        separate enemy and "ludicrous" cycle viewport widgets
+            of note: ludicrous bar gauges and text are larger and easier to see
+                full brake color slightly off-gray into a shade of red for clarity
+                speed moved to left for better positioning of score element
+                    (can't right align to left side of bar gauges and speed text width is always fixed whereas score can have 0-3 digits)
+        added peripheral rubber color warnings (bottom right/left 3-5 yellow->red)
+        added peripheral empty brake warning (top middle bar gauge visible on near-empty to empty)
+        added bottom middle rubber number
+        added map, time, fps, ping, friends vs enemies, teamscore:enemyteamscore to right side
+        edited colors of cycle viewport friends vs enemies and teamscore:enemyteamscore
+        add "you died" upon hitting 5 rubber for the lols
+    version 1: initial working version before rewrite into resizing "ludicrous" cycle viewport rubber/brakes
+
+    things of note:
+        all math fails on strings -> always outputs 0
+        setting bg and fg to same values on bargauge allows dynamic coloring of "solid rectangles" based on gamedata
+        cycle viewport enemies vs friends shows as single value depending on how many players your team is up or down
+            -1 instead of 4v5/3v4/etc or +2 instead of 6v4/5v3/etc
+            similarly shows score differential on cycle viewport instead of full score:score scoreboard
+                score differential seems less useful than team differential
+-->
+
+<Resource type="aacockpit" name="lyri" version="0.0.2" author="Lyri" category="simple">
+    <Cockpit version="0.0.2">
+
+        <!-- Begin templates -->
+
+        <!-- Template for enemy brakes -->
+        <WidgetTemplate id="brakesource-enemy">
+            <DataSet>
+                <Conditional field="source" lvalue="current_name" rvalue="ludicrous" operator="eq">
+                    <IfTrue>
+                        <AtomicData field="source" source="0"/>
+                    </IfTrue>
+                    <IfFalse>
+                        <AtomicData field="source" source="player_brakes"/>
+                    </IfFalse>
+                </Conditional>
+                <AtomicData field="minimum" source="0"/>
+                <AtomicData field="maximum" source="1"/>
+            </DataSet>
+        </WidgetTemplate>
+
+        <!-- Template for ludicrous brakes -->
+        <WidgetTemplate id="brakesource-ludicrous">
+            <DataSet>
+                <Conditional field="source" lvalue="current_name" rvalue="ludicrous" operator="eq">
+                    <IfTrue>
+                        <AtomicData field="source" source="player_brakes"/>
+                    </IfTrue>
+                    <IfFalse>
+                        <AtomicData field="source" source="0"/>
+                    </IfFalse>
+                </Conditional>
+                <AtomicData field="minimum" source="0"/>
+                <AtomicData field="maximum" source="1"/>
+            </DataSet>
+        </WidgetTemplate>
+
+        <!-- Template for enemy rubber -->
+        <WidgetTemplate id="rubbersource-enemy">
+            <DataSet>
+                <Conditional field="source" lvalue="current_name" rvalue="ludicrous" operator="eq">
+                    <IfTrue>
+                        <AtomicData field="source" source="0"/>
+                    </IfTrue>
+                    <IfFalse>
+                        <AtomicData field="source" source="player_rubber"/>
+                    </IfFalse>
+                </Conditional>
+                <AtomicData field="minimum" source="0"/>
+                <AtomicData field="maximum" source="cycle_rubber"/>
+            </DataSet>
+        </WidgetTemplate>
+
+        <!-- Template for ludicrous rubber -->
+        <WidgetTemplate id="rubbersource-ludicrous">
+            <DataSet>
+                <Conditional field="source" lvalue="current_name" rvalue="ludicrous" operator="eq">
+                    <IfTrue>
+                        <AtomicData field="source" source="player_rubber"/>
+                    </IfTrue>
+                    <IfFalse>
+                        <AtomicData field="source" source="0"/>
+                    </IfFalse>
+                </Conditional>
+                <AtomicData field="minimum" source="0"/>
+                <AtomicData field="maximum" source="cycle_rubber"/>
+            </DataSet>
+        </WidgetTemplate>
+
+        <!-- Template for rubber bar gauges gradient color -->
+        <WidgetTemplate id="bg-rubber">
+            <Foreground>
+                <Gradient orientation="value">
+                    <Color r="0." g="1." b="0." alpha=".1" at="0."/>
+                    <Color r="0." g="1." b="0." alpha=".2" at=".2"/>
+                    <Color r="1." g="1." b="0." alpha=".3" at=".4"/>
+                    <Color r="1." g="0." b="0." alpha=".7" at=".7"/>
+                    <Color r="1." g="0." b="0." alpha=".7" at=".99"/>
+                    <Color r="1." g="0." b="0." alpha="0." at="1."/>
+                </Gradient>
+            </Foreground>
+        </WidgetTemplate>
+
+        <!-- Template for bar gauges -->
+        <WidgetTemplate id="bg">
+            <ShowCurrent value="false"/>
+            <ShowMaximum value="false"/>
+            <ShowMinimum value="false"/>
+            <!-- transparent bg, mostly only color fg -->
+            <Background>
+                <Solid>
+                    <Color r="1." g="1." b="1." alpha=".0"/>
+                </Solid>
+            </Background>
+            <!-- transparent bar gauge line color, can overwrite in widget -->
+            <LineColor>
+                <Solid>
+                    <Color r="1." g="1." b="1." alpha="0."/>
+                </Solid>
+            </LineColor>
+        </WidgetTemplate>
+
+        <!-- Template for text colors -->
+        <WidgetTemplate id="textcolors">
+            <DataSet id="pinkcolor">
+                <AtomicData field="source" source="0xff5bff"/>
+            </DataSet>
+            <DataSet id="bluecolor">
+                <AtomicData field="source" source="0x00ccff"/>
+            </DataSet>
+            <DataSet id="whitecolor">
+                <AtomicData field="source" source="0xffffff"/>
+            </DataSet>
+            <DataSet id="graycolor">
+                <AtomicData field="source" source="0x888888"/>
+            </DataSet>
+        </WidgetTemplate>  
+        <!-- End templates -->
+
+        <!-- cycle widgets (hover above player cycles) -->    
+        <!-- cycle rubber meter -->
+        <BarGauge viewport="cycle" usetemplate="bg bg-rubber rubbersource-ludicrous">
+            <Reverse value="false"/>
+            <Position x="0." y=".06"/>
+            <Size height=".04" width=".08"/>
+            <Caption location="off">
+                <Text value="Rubber"/>
+            </Caption>
+        </BarGauge>
+
+        <!-- cycle brake meter-->
+        <BarGauge viewport="cycle" usetemplate="bg brakesource-ludicrous">
+            <Position x="0." y=".04"/>
+            <Size height=".02" width=".08"/>
+            <Caption location="off">
+                <Text value="Brakes"/>
+            </Caption>
+            <Foreground>
+                <Gradient orientation="value">
+                    <Color r=".8" g=".8" b=".8" alpha=".1" at="0."/>
+                    <Color r=".8" g=".8" b=".8" alpha=".1" at=".8"/>
+                    <Color r="1." g=".35" b="1." alpha=".1" at="1."/>
+                </Gradient>
+            </Foreground>
+        </BarGauge>
+
+        <!-- enemy cycle rubber meter -->
+        <BarGauge viewport="cycle" usetemplate="bg bg-rubber rubbersource-enemy">
+            <Reverse value="false"/>
+            <Position x="0." y=".05"/>
+            <Size height=".02" width=".04"/>
+            <Caption location="off">
+                <Text value="Rubber"/>
+            </Caption>
+        </BarGauge>
+
+        <!-- enemy cycle brake meter-->
+        <BarGauge viewport="cycle" usetemplate="bg brakesource-enemy">
+            <Position x="0." y=".04"/>
+            <Size height=".01" width=".04"/>
+            <Caption location="off">
+                <Text value="Brakes"/>
+            </Caption>
+            <Foreground>
+                <Solid>
+                    <Color r=".8" g=".8" b=".8" alpha=".1"/>
+                </Solid>
+            </Foreground>
+        </BarGauge>
+
+        <!-- cycle name -->
+        <Label viewport="cycle" toggle="4" toggleSticky="true" toggleDefault="on">
+            <DataSet id="name">
+                <Conditional field="source" lvalue="current_name" rvalue="ludicrous" operator="eq">
+                    <IfTrue>
+                        <AtomicData field="source" source=""/>
+                    </IfTrue>
+                    <IfFalse>
+                <AtomicData source="current_colored_name"/>
+                    </IfFalse>
+                </Conditional>
+            </DataSet>
+            <Position x="-0.04" y=".115"/>
+            <Size height=".04" width=".04"/>
+            <Face>
+                <Table>
+                    <Row>
+                        <Cell>
+                            <GameData data="name"/>
+                        </Cell>
+                    </Row>
+                </Table>
+            </Face>
+        </Label>
+
+        <!-- cycle speed ludicrous -->
+        <Label viewport="cycle" usetemplate="textcolors">
+            <DataSet id="speed">
+                <Conditional field="source" lvalue="current_name" rvalue="ludicrous" operator="eq">
+                    <IfTrue>
+                        <AtomicData source="player_speed"/>
+                    </IfTrue>
+                    <IfFalse>
+                        <AtomicData field="source" source=""/>
+                    </IfFalse>
+                </Conditional>
+            </DataSet>
+            <DataSet id="speedcolor">
+                <Conditional field="source" lvalue="player_speed" rvalue="32" operator="gt">
+                    <IfTrue>
+                        <Conditional field="source" lvalue="player_speed" rvalue="35" operator="gt">
+                            <IfTrue>
+                                <Conditional field="source" lvalue="player_speed" rvalue="40" operator="gt">
+                                    <IfTrue>
+                                        <Conditional field="source" lvalue="player_speed" rvalue="45" operator="gt">
+                                            <IfTrue>
+                                                <Conditional field="source" lvalue="player_speed" rvalue="50" operator="gt">
+                                                    <IfTrue>
+                                                        <AtomicData field="source" source="0xb30000"/><!-- 50+ deep red-->
+                                                    </IfTrue>
+                                                    <IfFalse>
+                                                        <AtomicData field="source" source="0xff1111"/><!-- 45-50 red-->
+                                                    </IfFalse>
+                                                </Conditional>
+                                            </IfTrue>
+                                            <IfFalse>
+                                                <AtomicData field="source" source="0xff5500"/><!-- 40-45 orange-->
+                                            </IfFalse>
+                                        </Conditional>
+                                    </IfTrue>
+                                    <IfFalse>
+                                        <AtomicData field="source" source="0xff9900"/><!-- 35-40 orange yellow -->
+                                    </IfFalse>
+                                </Conditional>
+                            </IfTrue>
+                            <IfFalse>
+                                <AtomicData field="source" source="0xffbb55"/><!-- 32-35 soft yellow -->
+                            </IfFalse>
+                        </Conditional>
+                    </IfTrue>
+                    <IfFalse>
+                        <AtomicData field="source" source="0x888888"/><!-- 0-31 gray -->
+                    </IfFalse>
+                </Conditional>
+            </DataSet>
+            <Position x="-0.152" y="0.129"/>
+            <Size height=".08" width=".08"/>
+            <Face>
+                <Table>
+                    <Row>
+                        <Cell>
+                            <GameData data="speedcolor"/><GameData data="speed"/>
+                        </Cell>
+                    </Row>
+                </Table>
+            </Face>
+        </Label>
+
+        <!-- cycle speed enemy-->
+        <Label viewport="cycle" usetemplate="textcolors">
+            <DataSet id="speed">
+                <Conditional field="source" lvalue="current_name" rvalue="ludicrous" operator="eq">
+                    <IfTrue>
+                        <AtomicData field="source" source=""/>
+                    </IfTrue>
+                    <IfFalse>
+                        <AtomicData source="player_speed"/>
+                    </IfFalse>
+                </Conditional>
+            </DataSet>
+            <DataSet id="speedcolor">
+                <Conditional field="source" lvalue="player_speed" rvalue="32" operator="gt">
+                    <IfTrue>
+                        <Conditional field="source" lvalue="player_speed" rvalue="35" operator="gt">
+                            <IfTrue>
+                                <Conditional field="source" lvalue="player_speed" rvalue="40" operator="gt">
+                                    <IfTrue>
+                                        <Conditional field="source" lvalue="player_speed" rvalue="45" operator="gt">
+                                            <IfTrue>
+                                                <Conditional field="source" lvalue="player_speed" rvalue="50" operator="gt">
+                                                    <IfTrue>
+                                                        <AtomicData field="source" source="0xb30000"/><!-- 50+ deep red-->
+                                                    </IfTrue>
+                                                    <IfFalse>
+                                                        <AtomicData field="source" source="0xff1111"/><!-- 45-50 red-->
+                                                    </IfFalse>
+                                                </Conditional>
+                                            </IfTrue>
+                                            <IfFalse>
+                                                <AtomicData field="source" source="0xff5500"/><!-- 40-45 orange-->
+                                            </IfFalse>
+                                        </Conditional>
+                                    </IfTrue>
+                                    <IfFalse>
+                                        <AtomicData field="source" source="0xff9900"/><!-- 35-40 orange yellow -->
+                                    </IfFalse>
+                                </Conditional>
+                            </IfTrue>
+                            <IfFalse>
+                                <AtomicData field="source" source="0xffbb55"/><!-- 32-35 soft yellow -->
+                            </IfFalse>
+                        </Conditional>
+                    </IfTrue>
+                    <IfFalse>
+                        <AtomicData field="source" source="0x888888"/><!-- 0-31 gray -->
+                    </IfFalse>
+                </Conditional>
+            </DataSet>
+            <Position x="0.045" y="0.09"/>
+            <Size height=".04" width=".04"/>
+            <Face>
+                <Table>
+                    <Row>
+                        <Cell>
+                            <GameData data="speedcolor"/><GameData data="speed"/>
+                        </Cell>
+                    </Row>
+                </Table>
+            </Face>
+        </Label>
+
+        <!-- cycle friends : enemies counter (only shows for name ludicrous)-->
+        <Label viewport="cycle" toggle="2" toggleSticky="true" toggleDefault="on" usetemplate="textcolors">
+            <DataSet id="alive_comparitor">
+                <Conditional field="source" lvalue="current_name" rvalue="ludicrous" operator="eq">
+                    <IfTrue>
+                        <Math field="source" lvalue="friends_alive" rvalue="enemies_alive" type="difference" precision="0"/>
+                    </IfTrue>
+                    <IfFalse>
+                        <AtomicData field="source" source=""/>
+                    </IfFalse>
+                </Conditional>
+            </DataSet>
+            <DataSet id="fecolor">
+                <Conditional field="source" lvalue="current_name" rvalue="ludicrous" operator="eq">
+                    <IfTrue>
+                        <Conditional field="source" lvalue="friends_alive" rvalue="enemies_alive" operator="eq">
+                            <IfTrue>
+                                <AtomicData field="source" source="0x888888+"/>
+                            </IfTrue>
+                            <IfFalse>
+                                <Conditional lvalue="friends_alive" rvalue="enemies_alive" operator="gt">
+                                    <IfTrue>
+                                        <AtomicData field="source" source="0x00ccff+"/>
+                                    </IfTrue>
+                                    <IfFalse>
+                                        <AtomicData field="source" source="0xff5bff"/>
+                                    </IfFalse>
+                                </Conditional>
+                            </IfFalse>
+                        </Conditional>
+                    </IfTrue>
+                    <IfFalse>
+                        <AtomicData field="source" source=""/>
+                    </IfFalse>
+                </Conditional>
+            </DataSet>
+            <Size height="0.06" width="0.06"/>
+            <Position x=".085" y="0.102"/>
+            <Face>
+                <Table>
+                    <Row>
+                        <Cell>
+                            <GameData data="fecolor"/><GameData data="alive_comparitor"/>
+                        </Cell>
+                    </Row>
+                </Table>
+            </Face>
+        </Label>
+
+        <!-- cycle teamscore:enemyteamscore "ludicrous"-->
+        <Label viewport="cycle" toggle="1" toggleSticky="true" toggleDefault="on" usetemplate="textcolors">
+            <DataSet id="score_comparitor">
+                <Conditional field="source" lvalue="current_name" rvalue="ludicrous" operator="eq">
+                    <IfTrue>
+                        <Math field="source" lvalue="current_score_team" rvalue="top_other_score_team" type="difference" precision="0"/>
+                    </IfTrue>
+                    <IfFalse>
+                        <AtomicData field="source" source=""/>
+                    </IfFalse>
+                </Conditional>
+            </DataSet>
+            <DataSet id="spacer">
+                <AtomicData field="source" source="  "/>
+            </DataSet>
+            <DataSet id="score_color">
+                <Conditional field="source" lvalue="current_score_team" rvalue="top_other_score_team" operator="eq">
+                    <IfTrue>
+                        <AtomicData field="source" source="0x888888"/>
+                    </IfTrue>
+                    <IfFalse>
+                        <Conditional field="source" lvalue="current_score_team" rvalue="top_other_score_team" operator="gt">
+                            <IfTrue>
+                                <AtomicData field="source" source="0x888888"/>
+                            </IfTrue>
+                            <IfFalse>
+                                <AtomicData field="source" source="0xff5bff"/>
+                            </IfFalse>
+                        </Conditional>
+                    </IfFalse>
+                </Conditional>
+            </DataSet>
+            <Size height="0.06" width="0.06"/>
+            <Position x=".085" y="0.145"/>
+            <Face>
+                <Table>
+                    <Row>
+                        <Cell>
+                            <GameData data="spacer"/><GameData data="score_color"/><GameData data="score_comparitor"/>
+                        </Cell>
+                    </Row>
+                </Table>
+            </Face>
+        </Label>
+        <!-- end cycle widgets -->
+
+        <!-- static hud elements -->
+        <!--    Text for time, fps, ping
+                top-right of map -->
+        <Label toggle="3" camera="*" usetemplate="textcolors">
+            <DataSet id="hours">
+                <AtomicData source="current_hours" minwidth="2" fill="0"/>
+            </DataSet>
+            <DataSet id="minutes">
+                <AtomicData source="current_minutes" minwidth="2" fill="0"/>
+            </DataSet>
+            <DataSet id="fps">
+                <AtomicData source="current_framerate"/>
+            </DataSet>
+            <DataSet id="ping">
+                <AtomicData field="source" source="current_ping"/>
+            </DataSet>
+            <Position x="0.88" y="0.03"/>
+            <Size height="0.04" width="0.04"/> <!-- font size -->
+            <Face>
+                <Table>
+                    <Row>
+                        <Cell><GameData data="hours"/><GameData data="pinkcolor"/><Text value=":"/><GameData data="whitecolor"/><GameData data="minutes"/></Cell>
+                    </Row>
+                    <Row>
+                        <Cell><GameData data="fps" /><GameData data="pinkcolor"/><Text value=" FPS"/></Cell>
+                    </Row>
+                    <Row>
+                        <Cell><GameData data="ping"/><GameData data="pinkcolor"/><Text value=" ms"/></Cell>
+                    </Row>
+                </Table>
+            </Face>
+        </Label>
+
+        <!--    current cycle name
+                below map -->
+        <Label toggle="3" toggleDefault="on">
+            <DataSet id="name">
+                <AtomicData source="current_colored_name"/>
+            </DataSet>
+            <Size height="0.05" width="0.035"/>
+            <Position x=".618" y="-0.49"/>
+            <Face>
+                <Table>
+                    <Row>
+                        <Cell>
+                            <GameData data="name"/>
+                        </Cell>
+                    </Row>
+                </Table>
+            </Face>
+        </Label>
+        
+        <!--    friends + enemies counter, teamscore:enemyteamscore
+                above map -->
+        <Label toggle="3" toggleSticky="true" toggleDefault="on" usetemplate="textcolors">
+            <DataSet id="friends">
+                <AtomicData field="source" source="friends_alive"/>
+            </DataSet>
+            <DataSet id="enemies">
+                <AtomicData field="source" source="enemies_alive"/>
+            </DataSet>
+            <DataSet id="fecolor">
+                <Conditional field="source" lvalue="friends_alive" rvalue="enemies_alive" operator="eq">
+                    <IfTrue>
+                        <AtomicData field="source" source="0xffff77"/>
+                    </IfTrue>
+                    <IfFalse>
+                        <Conditional lvalue="friends_alive" rvalue="enemies_alive" operator="gt">
+                            <IfTrue>
+                                <AtomicData field="source" source="0x00ccff"/>
+                            </IfTrue>
+                            <IfFalse>
+                                <AtomicData field="source" source="0xff5bff"/>
+                            </IfFalse>
+                        </Conditional>
+                    </IfFalse>
+                </Conditional>
+            </DataSet>
+            <DataSet id="teamscore">
+                <AtomicData field="source" source="current_score_team"/>
+            </DataSet>
+            <DataSet id="enemyscore">
+                <AtomicData field="source" source="top_other_score_team"/>
+            </DataSet>
+            <Size height="0.05" width="0.035"/>
+            <Position x=".618" y="0.01"/>
+            <Face>
+                <Table>
+                    <Row>
+                        <Cell>
+                            <GameData data="fecolor"/><GameData data="friends"/><GameData data="whitecolor"/><Text value=" vs "/><GameData data="fecolor"/><GameData data="enemies"/>
+                        </Cell>
+                    </Row>
+                    <Row>
+                        <Cell>
+                            <GameData data="teamscore"/><GameData data="pinkcolor"/><Text value=" : "/><GameData data="whitecolor"/><GameData data="enemyscore"/>
+                        </Cell>
+                    </Row>
+                </Table>
+            </Face>
+        </Label>
+
+        <!--    HUD map
+                right middle --><!--toggle="5" toggleSticky="true" toggleDefault="on"-->
+        <Map camera="*">
+            <Position x="0.78" y="-0.3"/>
+            <Size height="0.2" width="0.165"/>
+            <Background>
+                <Solid>
+                    <Color r="0" g="0" b="0" alpha="0.3"/>
+                </Solid>
+            </Background>
+            <MapModes>
+                <MapMode mode="full" rotation="spawn" zoomFactor="5"/>
+            </MapModes><!--
+            <MapModes toggleKey="2">
+                <MapMode mode="full" rotation="spawn" zoomFactor="5"/> full map
+                <MapMode mode="closestZone" rotation="spawn" zoomFactor="5"/> sumo map
+                <MapMode mode="cycle" rotation="spawn" zoomFactor="5"/> near cycle map
+            </MapModes>-->
+        </Map>
+
+        <!-- begin bars -->
+        <!-- bottom left "warning" vertical rubber bar -->
+        <VerticalBarGauge camera="*" usetemplate="bg" toggle="5" toggleSticky="true" toggleDefault="on">
+            <DataSet>
+                <AtomicData field="source" source="player_rubber"/>
+                <AtomicData field="minimum" source="0"/>
+                <AtomicData field="maximum" source="cycle_rubber"/>
+            </DataSet>
+            <Position x="-.75" y="-.95"/>
+            <Size height=".05" width="0.25"/>
+            <Caption location="off">
+                <Text value="Rubber"/>
+            </Caption>
+            <Foreground>
+                <Gradient orientation="value">
+                    <Color r="0." g="1." b="0." alpha="0." at="0."/>
+                    <Color r="0." g="1." b="0." alpha="0." at=".2"/>
+                    <Color r="1." g="1." b="0." alpha="0.05" at=".4"/>
+                    <Color r="1." g="0." b="0." alpha=".2" at=".69"/>
+                    <Color r="1." g="0." b="0." alpha=".7" at=".7"/>
+                    <Color r="1." g="0." b="0." alpha=".7" at=".99"/>
+                    <Color r="1." g="0." b="0." alpha="0." at="1."/>
+                </Gradient>
+            </Foreground>
+            <Background>
+                <Gradient orientation="value">
+                    <Color r="0." g="1." b="0." alpha="0." at="0."/>
+                    <Color r="0." g="1." b="0." alpha="0." at=".2"/>
+                    <Color r="1." g="1." b="0." alpha="0.05" at=".4"/>
+                    <Color r="1." g="0." b="0." alpha=".2" at=".69"/>
+                    <Color r="1." g="0." b="0." alpha=".7" at=".7"/>
+                    <Color r="1." g="0." b="0." alpha=".7" at=".99"/>
+                    <Color r="1." g="0." b="0." alpha="0." at="1."/>
+                </Gradient>
+            </Background>
+        </VerticalBarGauge>
+        <!-- bottom right "warning" vertical rubber bar -->
+        <VerticalBarGauge camera="*" usetemplate="bg" toggle="5" toggleSticky="true" toggleDefault="on">
+            <DataSet>
+                <AtomicData field="source" source="player_rubber"/>
+                <AtomicData field="minimum" source="0"/>
+                <AtomicData field="maximum" source="cycle_rubber"/>
+            </DataSet>
+            <Position x=".75" y="-.95"/>
+            <Size height=".05" width="0.25"/>
+            <Caption location="off">
+                <Text value="Rubber"/>
+            </Caption>
+            <Foreground>
+                <Gradient orientation="value">
+                    <Color r="0." g="1." b="0." alpha="0." at="0."/>
+                    <Color r="0." g="1." b="0." alpha="0." at=".2"/>
+                    <Color r="1." g="1." b="0." alpha="0.05" at=".4"/>
+                    <Color r="1." g="0." b="0." alpha=".2" at=".69"/>
+                    <Color r="1." g="0." b="0." alpha=".7" at=".7"/>
+                    <Color r="1." g="0." b="0." alpha=".7" at=".99"/>
+                    <Color r="1." g="0." b="0." alpha="0." at="1."/>
+                </Gradient>
+            </Foreground>
+            <Background>
+                <Gradient orientation="value">
+                    <Color r="0." g="1." b="0." alpha="0." at="0."/>
+                    <Color r="0." g="1." b="0." alpha="0." at=".2"/>
+                    <Color r="1." g="1." b="0." alpha="0.05" at=".4"/>
+                    <Color r="1." g="0." b="0." alpha=".2" at=".69"/>
+                    <Color r="1." g="0." b="0." alpha=".7" at=".7"/>
+                    <Color r="1." g="0." b="0." alpha=".7" at=".99"/>
+                    <Color r="1." g="0." b="0." alpha="0." at="1."/>
+                </Gradient>
+            </Background>
+        </VerticalBarGauge>
+
+        <!-- top center "warning" vertical brake bar -->
+        <VerticalBarGauge camera="*" usetemplate="bg">
+            <DataSet>
+                <AtomicData field="source" source="player_brakes"/>
+                <AtomicData field="minimum" source="0"/>
+                <AtomicData field="maximum" source="1"/>
+            </DataSet>
+            <Position x=".0" y="0.45"/>
+            <Size height=".05" width="0.25"/>
+            <Caption location="off">
+                <Text value="Brakes"/>
+            </Caption>
+            <Foreground>
+                <Gradient orientation="value">
+                    <Color r="0." g="0.8" b="1." alpha="1." at="0."/>
+                    <Color r="0." g="0.8" b="1." alpha="0." at=".35"/>
+                    <Color r="0." g="0." b="0." alpha="0." at="1."/>
+                </Gradient>
+            </Foreground>
+            <Background>
+                <Gradient orientation="value">
+                    <Color r="0." g="0.8" b="1." alpha="1." at="0."/>
+                    <Color r="0." g="0.8" b="1." alpha="0." at=".35"/>
+                    <Color r="0." g="0." b="0." alpha="0." at="1."/>
+                </Gradient>
+            </Background>
+        </VerticalBarGauge>
+        <!-- end bars -->
+
+        <!-- rubber text value -->
+        <Label>
+            <DataSet id="current_rubber">
+                <!-- conditional to hide bright red rubber number on death(otherwise it stays on screen for a few seconds) -->
+                <Conditional lvalue="player_rubber" rvalue="4.99" operator="gt">
+                    <IfTrue>
+                        <AtomicData field="source" source=""/>
+                    </IfTrue>
+                    <IfFalse>
+                        <AtomicData field="source" source="player_rubber"/>
+                    </IfFalse>
+                </Conditional>
+                <!--<Math field="source" lvalue="player_rubber" rvalue="cycle_rubber" type="quotient" precision="3"/>-->
+            </DataSet>
+            <DataSet id="rubber_color">
+                <!--    can't use math in conditional lvalue or rvalue
+                        forced to use hard coded values for fort/sumo
+                        else, would divide player_rubber by cycle_rubber
+                            this would give a number between 0-1
+                            that would be easy to compare against
+                 -->
+                <Conditional lvalue="player_rubber" rvalue="2" operator="gt">
+                    <IfTrue>
+                        <Conditional lvalue="player_rubber" rvalue="3.5" operator="gt">
+                            <IfTrue>
+                                <AtomicData field="source" source="0xff0000"/>
+                            </IfTrue>
+                            <IfFalse>
+                                <AtomicData field="source" source="0xaaaa00"/>
+                            </IfFalse>
+                        </Conditional>
+                    </IfTrue>
+                    <IfFalse>
+                        <AtomicData field="source" source="0x119933"/>
+                    </IfFalse>
+                </Conditional>
+            </DataSet>
+            <Position x="-0.05" y="-.65"/>
+            <Size height=".3" width=".3"/>
+            <Face>
+                <Table>
+                    <Row>
+                        <Cell>
+                            <GameData data="rubber_color"/><GameData data="current_rubber"/>
+                        </Cell>
+                    </Row>
+                </Table>
+            </Face>
+        </Label>
+
+        <!-- YOU DIED text value
+            based on testing if current rubber value = max value (ur dead lole)
+            only shows up sometimes on servers because of client server delay, works every time in local game
+            comparing to static number like 4.99 activates too many times when still alive which is bothersome
+        -->
+        <Label>
+            <DataSet id="dead_or_nah">
+                <Conditional lvalue="player_rubber" rvalue="cycle_rubber" operator="eq">
+                    <IfTrue>
+                        <AtomicData field="source" source="YOU DIED"/>
+                    </IfTrue>
+                    <IfFalse>
+                        <AtomicData field="source" source=""/>
+                    </IfFalse>
+                </Conditional>
+            </DataSet>
+            <DataSet id="deadlole">
+                <AtomicData field="source" source="0xff0000"/>
+            </DataSet>
+            <Position x="-0.25" y="0.0"/>
+            <Size height=".3" width=".3"/>
+            <Face>
+                <Table>
+                    <Row>
+                        <Cell>
+                            <GameData data="deadlole"/><GameData data="dead_or_nah"/>
+                        </Cell>
+                    </Row>
+                </Table>
+            </Face>
+        </Label>
+        <!-- end static hud elements -->
+
+    </Cockpit>
+</Resource>
+

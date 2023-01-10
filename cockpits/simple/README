@@ -1,0 +1,41 @@
+other unused/previous/test huds to be added in the future
+
+"simple" hud
+
+    This hud splits user (currently set to ludicrous) and enemy cycle hud elements
+        user cycle elements are larger for clarity
+        additionally, simplified friends/enemies counter only displays on "user" cycle hud
+        replace all instances of "ludicrous" in this file with your own name to utilize the larger cycle hud elements
+            otherwise, you will have the same size rubber and brake meters as enemies ( still entirely useable, but with less features )
+
+    This hud also has peripheral "warning" bars for brakes and rubber. Top is blue for brakes--it begins to become visibile at .0.35 brakes, reaching fullbright at 0.00. Bottom right and left are gradients from green to red for rubber which are invisible until 20%, amping up to fullbright at 70%, warning you that certain turns are no longer possible.
+
+    The rubber number at the bottom is also gradiented from 0-5 based on severity. Due to code limitations, this is hard-coded to 5 rubber and is only valid for 5 rubber gamemodes.
+
+    Above the <user> cycle is also a +/- value which is a consolidated version of the classic friends vs enemies counter. If it says +x your team is up by x players. Similarly, any -x is the quantity of players your team is down by.
+
+    toggles for version 0.0.4:
+        1 peripheral warning bars
+        2 friends enemies (over cycle)
+        3 name (enemies over cycle)
+        4 static text (near map)
+        5 map
+
+    use an instant chat for /console toggle show_own_name
+        to enable or disable the hud elements above your own cycle
+
+    you may wish to place
+        fadeout_name_delay 0.000001
+        show_own_name 1
+      in your autoexec
+        fadeout_name_delay is used for floating enemy nameplate rubber/brake
+            set to -1 to show ugly name
+            set to extremely small value to show hud widgets(name immediately vanishes)
+            set to 0 to hide all
+        because a low value is required to enable enemy hud elements without the ugly player names, an instant chat set to /console toggle fadeout_name_delay will not work. Instead, setting one instant chat to /console fadeout_name_delay 0 and either another to the low value or gamemode specific cfgs that include fadeout_name_delay 0.000001 is recommended.
+
+    Dig comparitor not included due to inconsistent/not-quite-deterministic game stuff(bugs?).
+
+other huds
+    tba
+
